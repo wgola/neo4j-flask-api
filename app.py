@@ -1,8 +1,8 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 
-from connectDB import connectDB
+from connect_db import connect_db
 
-driver = connectDB()
+DRIVER = connect_db()
 
 app = Flask(__name__)
 
