@@ -39,3 +39,32 @@ class app_services():
         employees = [result['m'] for result in results]
 
         return employees
+
+    @staticmethod
+    def check_if_unique_name_and_surname(tx, name, surname):
+        query = "MATCH (m:Employee) WHERE m.name = '{}' AND m.surname = '{}' RETURN m".format(
+            name, surname)
+        result = tx.run(query).data()
+
+        return len(result) == 0
+
+    @staticmethod
+    def create_employee(tx, name, surname, position, department, type):
+        employee_data = "{ " + "name: '{}', surname: '{}', position: '{}'".format(
+            name, surname, position) + " }"
+
+        relationship = ""
+        if type == "manager":
+            relationship = "-[r:MANAGES]->"
+        else:
+            relationship = "-[r:WORKS_INT]->"
+
+        query = "MATCH (m:Department WHERE m.name = '{}') CREATE (n:Employee {}){}(m)".format(
+            department, employee_data, relationship)
+
+        result = tx.run(query).consume()
+
+        if result['nodes_created'] == 1:
+            return True
+
+        return False
