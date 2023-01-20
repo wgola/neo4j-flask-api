@@ -53,5 +53,28 @@ def create_employee():
     return jsonify({"message": "Coulnd't create employee"}), 500
 
 
+@app.route("/employees/<int:id>", methods=['GET'])
+def get_employee_by_id(id):
+    with DRIVER.session() as session:
+        employee = session.execute_read(
+            app_services.get_employee_by_id, id)
+
+    return jsonify(employee)
+
+
+@app.route("/employees/<int:id>", methods=['PUT'])
+def update_employee(id):
+    employee_data = request.json
+
+    with DRIVER.session() as session:
+        if_updated = session.execute_write(
+            app_services.update_employee, id, employee_data)
+
+    if if_updated:
+        return jsonify({"message": "Employee updated"}), 201
+
+    return jsonify({"message": "Coulnd't update employee"}), 500
+
+
 if __name__ == '__main__':
     app.run()
