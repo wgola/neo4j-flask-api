@@ -75,9 +75,9 @@ class app_services():
         query = "MATCH (m:Department WHERE m.name = '{}') CREATE (n:Employee {}){}(m)".format(
             department, employee_data, relationship)
 
-        result = tx.run(query).consume()
+        result = tx.run(query).consume().counters
 
-        if result['nodes_created'] == 1:
+        if result.nodes_created == 1:
             return True
 
         return False
@@ -118,13 +118,14 @@ class app_services():
         create_relationship_query = ""
         if department and type:
             relationship = ""
-            if type == "manages":
+            if type == "manager":
                 relationship = "-[r:MANAGES]->"
             else:
                 relationship = "-[r:WORKS_IN]->"
 
-            delete_relationship_query = "MATCH (m:Employee)-[r]->(n) WHERE ID(m) = {} DELETE r"
-            create_relationship_query = "MATCH (m:Employee WHERE ID(m) = {}), (n: Department WHERE n.name = {}) CREATE (m){}(n)".format(
+            delete_relationship_query = "MATCH (m:Employee)-[r]->(n) WHERE ID(m) = {} DELETE r".format(
+                id)
+            create_relationship_query = "MATCH (m:Employee WHERE ID(m) = {}), (n: Department WHERE n.name = '{}') CREATE (m){}(n)".format(
                 id, department, relationship)
 
         result = []
@@ -136,6 +137,59 @@ class app_services():
             result.append(tx.run(create_relationship_query).consume())
 
         if result:
+            return True
+
+        return False
+
+    @staticmethod
+    def delete_employee(tx, id):
+        get_relationship_type_query = "MATCH (m:Employee)-[r]->(n:Department) WHERE ID(m) = {} RETURN type(r), n.name".format(
+            id)
+        result = tx.run(get_relationship_type_query).data()
+
+        if len(result) == 0:
+            return False
+
+        relationship_type = result[0]['type(r)']
+        department_name = result[0]['n.name']
+
+        if relationship_type == "WORKS_IN":
+            delete_employee_query = "MATCH (m:Employee) WHERE ID(m) = {} DETACH DELETE m".format(
+                id)
+            result = tx.run(delete_employee_query).consume().counters
+            if result.nodes_deleted == 1:
+                return True
+
+            return False
+
+        get_all_other_employees_from_department_query = "MATCH (n:Employee)-[r]->(m:Department WHERE m.name = '{}') RETURN ID(n)".format(
+            department_name)
+
+        other_department_employees_ids = tx.run(
+            get_all_other_employees_from_department_query).data()
+
+        filtered_ids = list(filter(lambda employee_id: int(
+            employee_id['ID(n)']) != id, other_department_employees_ids))
+
+        if len(filtered_ids) == 0:
+            delete_employee_query = "MATCH (m:Employee WHERE ID(m) = {})-[r]->(n:Department) DETACH DELETE m, n".format(
+                id)
+            result = tx.run(delete_employee_query).consume().counters
+
+            if result.nodes_deleted == 2:
+                return True
+
+            return False
+
+        app_services.update_employee(tx, int(filtered_ids[0]['ID(n)']), {
+                                     'department': department_name, 'type': 'manager'})
+
+        delete_employee_query = "MATCH (m:Employee) WHERE ID(m) = {} DETACH DELETE m".format(
+            id)
+
+        result = tx.run(delete_employee_query).consume().counters
+
+        if result.nodes_deleted == 1:
             return True
 
         return False

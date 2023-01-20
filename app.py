@@ -76,5 +76,16 @@ def update_employee(id):
     return jsonify({"message": "Coulnd't update employee"}), 500
 
 
+@app.route("/employees/<int:id>", methods=['DELETE'])
+def delete_employee(id):
+    with DRIVER.session() as session:
+        if_deleted = session.execute_write(app_services.delete_employee, id)
+
+    if if_deleted:
+        return jsonify({"message": "Employee deleted"}), 201
+
+    return jsonify({"message": "Coulnd't delete employee"}), 500
+
+
 if __name__ == '__main__':
     app.run()
